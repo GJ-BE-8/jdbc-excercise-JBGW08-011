@@ -16,62 +16,237 @@ public class ClubRegistrationRepositoryImpl implements ClubRegistrationRepositor
     @Override
     public int save(Connection connection, String studentId, String clubId) {
         //todo#11 - 핵생 -> 클럽 등록, executeUpdate() 결과를 반환
+        String sql = "INSERT INTO jdbc_club_registrations SET student_id=?, club_id=?";
+        log.debug("sql: {}",sql);
+        try(PreparedStatement statement = connection.prepareStatement(sql)){
+            statement.setString(1,studentId);
+            statement.setString(2,clubId);
 
-        return 0;
+            int result = statement.executeUpdate();
+            log.debug("result: {}",result);
+            return result;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
     public int deleteByStudentIdAndClubId(Connection connection, String studentId, String clubId) {
         //todo#12 - 핵생 -> 클럽 탈퇴, executeUpdate() 결과를 반환
-        return 0;
+        String sql = "DELETE FROM jdbc_club_registrations WHERE student_id =? and club_id=?";
+        log.debug("sql: {}",sql);
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)){
+
+            statement.setString(1,studentId);
+            statement.setString(2,clubId);
+
+            int result = statement.executeUpdate();
+            log.debug("result: {}",result);
+            return  result;
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
     public List<ClubStudent> findClubStudentsByStudentId(Connection connection, String studentId) {
         //todo#13 - 핵생 -> 클럽 등록, executeUpdate() 결과를 반환
-        return Collections.emptyList();
+        String sql = "SELECT S.id  as student_id, S.name as student_name, C.club_id, C.club_name " +
+                "FROM jdbc_students S " +
+                "Inner join jdbc_club_registrations R on S.id = R.student_id " +
+                "INNER JOIN jdbc_club C ON R.club_id = C.club_id WHERE S.id = ? ";
+        log.debug("sql: {}",sql);
+
+        ResultSet resultSet = null;
+        try (PreparedStatement statement = connection.prepareStatement(sql)){
+            statement.setString(1,studentId);
+            resultSet = statement.executeQuery();
+
+            List<ClubStudent> clubStudentList = new ArrayList<>();
+            while (resultSet.next())
+            {
+                clubStudentList.add(new ClubStudent(
+                        resultSet.getString("student_id"),
+                        resultSet.getString("student_name"),
+                        resultSet.getString("club_id"),
+                        resultSet.getString("club_name")
+                ));
+            }
+            return clubStudentList;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+        finally {
+            try {
+                resultSet.close();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     @Override
     public List<ClubStudent> findClubStudents(Connection connection) {
         //todo#21 - join
-        return Collections.emptyList();
+        String sql = "SELECT S.id as student_id,  S.name as student_name,  C.club_id,  C.club_name " +
+                "FROM jdbc_students S " +
+                " INNER JOIN jdbc_club_registrations R ON S.id=R.student_id " +
+                "INNER JOIN jdbc_club C ON R.club_id = C.club_id " +
+                "ORDER BY S.id asc, R.club_id ASC";
+        log.debug("sql:{}",sql);
+        try{
+            return getClubStudentList(connection,sql);
+        }catch (Exception e){
+            throw e;
+        }
+
     }
 
     @Override
     public List<ClubStudent> findClubStudents_left_join(Connection connection) {
         //todo#22 - left join
-        return Collections.emptyList();
+        String sql = "SELECT S.id as student_id , S.name as Student_name, C.club_id, C.club_name " +
+                "FROM jdbc_students S " +
+                "LEFT JOIN jdbc_club_registrations R ON S.id = R.student_id " +
+                "LEFT JOIN jdbc_club C ON R.club_id = C.club_id " +
+                "ORDER BY S.id ASC, R.club_id ASC";
+
+        log.debug("sql: {}",sql);
+
+        try {
+            return getClubStudentList(connection,sql);
+        }
+        catch (Exception e)
+        {
+            throw e;
+        }
     }
 
     @Override
     public List<ClubStudent> findClubStudents_right_join(Connection connection) {
         //todo#23 - right join
-        return Collections.emptyList();
+        String sql = "SELECT S.id as student_id, S.name as student_name, C.club_id, C.club_name " +
+                "FROM jdbc_students S " +
+                "RIGHT JOIN jdbc_club_registrations R on S.id = R.student_id " +
+                "RIGHT JOIN jdbc_club C on R.club_id = C.club_id ORDER BY C.club_id asc, S.id ASC" ;
+        log.debug("sql: {}",sql);
+
+        try {
+            return getClubStudentList(connection,sql);
+        }
+        catch (Exception e)
+        {
+            throw e;
+        }
     }
 
     @Override
     public List<ClubStudent> findClubStudents_full_join(Connection connection) {
         //todo#24 - full join = left join union right join
-        return Collections.emptyList();
+        StringBuilder sb  = new StringBuilder();
+        sb.append("SELECT S.id as student_id, S.name as student_name,  C.club_id, C.club_name FROM jdbc_students S LEFT JOIN jdbc_club_registrations R on S.id = R.student_id LEFT JOIN jdbc_club C on R.club_id = C.club_id");
+        sb.append(System.lineSeparator());
+        sb.append("union");
+        sb.append(System.lineSeparator());
+        //right join
+        sb.append("SELECT S.id as student_id, S.name as student_name, C.club_id, C.club_name from jdbc_students S RIGHT JOIN jdbc_club_registrations R on S.id = R.student_id RIGHT JOIN jdbc_club C on R.club_id = C.club_id");
+        try {
+            return getClubStudentList(connection,sb.toString());
+        }
+        catch (Exception e)
+        {
+            throw e;
+        }
     }
 
     @Override
     public List<ClubStudent> findClubStudents_left_excluding_join(Connection connection) {
         //todo#25 - left excluding join
-        return Collections.emptyList();
+        String sql = "SELECT S.id as student_id , S.name as Student_name, C.club_id, C.club_name " +
+                "FROM jdbc_students S " +
+                "LEFT JOIN jdbc_club_registrations R ON S.id = R.student_id " +
+                "LEFT JOIN jdbc_club C ON R.club_id = C.club_id " +
+                "WHERE C.club_id is null " +
+                "ORDER BY S.id ASC";
+
+        try {
+            return getClubStudentList(connection,sql);
+        }
+        catch (Exception e)
+        {
+            throw e;
+        }
     }
 
     @Override
     public List<ClubStudent> findClubStudents_right_excluding_join(Connection connection) {
         //todo#26 - right excluding join
-        return Collections.emptyList();
+        String sql = "SELECT S.id as student_id , S.name as Student_name, C.club_id, C.club_name " +
+                "FROM jdbc_students S " +
+                "RIGHT JOIN jdbc_club_registrations R ON S.id = R.student_id " +
+                "RIGHT JOIN jdbc_club C ON R.club_id = C.club_id " +
+                "WHERE S.id is null " +
+                "ORDER BY R.club_id ASC";
+        try {
+            return getClubStudentList(connection,sql);
+        }
+        catch (Exception e)
+        {
+            throw e;
+        }
     }
 
     @Override
     public List<ClubStudent> findClubStudents_outher_excluding_join(Connection connection) {
         //todo#27 - outher_excluding_join = left excluding join union right excluding join
-        return Collections.emptyList();
+        StringBuilder sb  = new StringBuilder();
+        sb.append("SELECT S.id as student_id,  S.name as student_name, C.club_id,  C.club_name from jdbc_students S  LEFT JOIN jdbc_club_registrations R on S.id = R.student_id LEFT JOIN jdbc_club C on R.club_id = C.club_id WHERE C.club_id is null");
+        sb.append(System.lineSeparator());
+        sb.append("UNION");
+        sb.append(System.lineSeparator());
+        //right join
+        sb.append("SELECT S.id as student_id,  S.name as student_name,  C.club_id,  C.club_name from jdbc_students S  RIGHT JOIN jdbc_club_registrations R on S.id = R.student_id RIGHT JOIN jdbc_club C on R.club_id = C.club_id WHERE S.id is null");
+
+        try {
+            return getClubStudentList(connection,sb.toString());
+        }
+        catch (Exception e)
+        {
+            throw e;
+        }
+    }
+
+    private List<ClubStudent> getClubStudentList(Connection connection, String sql){
+        ResultSet rs = null;
+
+        try(PreparedStatement statement = connection.prepareStatement(sql)){
+            rs = statement.executeQuery();
+
+            List<ClubStudent> clubStudentList = new ArrayList<>();
+            while (rs.next()){
+                clubStudentList.add(
+                        new ClubStudent(
+                                rs.getString("student_id"),
+                                rs.getString("student_name"),
+                                rs.getString("club_id"),
+                                rs.getString("club_name")
+                        )
+                );
+            }
+            return clubStudentList;
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }finally {
+            try {
+                if(Objects.nonNull(rs)) {
+                    rs.close();
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
 }
